@@ -2,8 +2,10 @@ let coordinates = [50, 0];
 let zoom = 14;
 
 try {
-  coordinates = JSON.parse(sessionStorage.getItem('coordinates'));
-  zoom = JSON.parse(sessionStorage.getItem('zoom'));
+  const c = JSON.parse(sessionStorage.getItem('coordinates'));
+  if(c) coordinates = c;
+  const z = JSON.parse(sessionStorage.getItem('zoom'));
+  if(z) zoom = z;
 } catch {}
 
 
