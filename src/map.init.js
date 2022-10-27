@@ -57,7 +57,9 @@ const wikidata = async (coordinates) => {
         `<a href="${item.value}" target="_blank">${itemLabel.value} (${
           item.value.split("/")[item.value.split("/").length - 1]
         })</a>`
-    );
+    ).on('click', () => {
+      document.querySelector('knowledge-graph')?.setAttribute('key', item.value.slice(item.value.lastIndexOf('/') + 1));
+    });
   });
 };
 

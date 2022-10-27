@@ -22,7 +22,14 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.1.0/dist/leaflet.markercluster.js"></script>
   </head>
   <body>
-    <div id="map"></div>
+    <div class="split" style="display: grid; grid-template-columns: 500px auto; height: 100%">
+      <div id="id">
+        <knowledge-graph key="Q2770505" source="wikidata"  top-facts="UIC station code"></knowledge-graph>
+      </div>
+      <div id="map"></div>
+    </div>
     <script src="./src/map.init.js"></script>
+    <link rel="stylesheet" href="https://raw.githack.com/lemnis/knowledge-graph/master/src/style.css">
+    <script src="https://raw.githack.com/lemnis/knowledge-graph/master/src/script.js" type="module"></script>
   </body>
 </html>
