@@ -1,90 +1,84 @@
-let coordinates = [50, 0];
-let zoom = 14;
+import { getCachedLocation, setCachedLocation } from "./cache.js";
+import { wikidata } from "./wikidata.js";
 
-try {
-  const c = JSON.parse(sessionStorage.getItem('coordinates'));
-  if(c) coordinates = c;
-  const z = JSON.parse(sessionStorage.getItem('zoom'));
-  if(z) zoom = z;
-} catch {}
+let { coordinates, zoom } = {
+  zoom: 5,
+  coordinates: { lat: 50, lng: 0 },
+};
 
+const cachedLocation = getCachedLocation();
+if (cachedLocation?.coordinates) coordinates = cachedLocation.coordinates;
+if (cachedLocation?.zoom) zoom = cachedLocation.zoom;
 
-console.log(coordinates, zoom);
-var map = L.map("map").setView(coordinates, zoom);
+let map;
+
+const layers = new Set();
+
+const lo = (e) => {
+  console.log(e);
+  setCachedLocation(map.getCenter(), map.getZoom());
+
+  const bounds = map.getBounds();
+  const { lat: east, lng: north } = bounds.getNorthEast();
+  const { lat: west, lng: south } = bounds.getSouthWest();
+
+  wikidata({ east, north, west, south })
+    .then((items) =>
+      items.map(({ coordinates, url }) => {
+        return L.marker(coordinates).on("click", () => {
+          const id = url.slice(url.lastIndexOf("/") + 1);
+
+          if (document.querySelector("knowledge-graph")) {
+            document
+              .querySelector("knowledge-graph")
+              ?.setAttribute("key", id);
+            return;
+          }
+
+          L.Control.infobox = L.Control.extend({
+            onAdd: function (map) {
+              var text = L.DomUtil.create("knowledge-graph");
+              text.setAttribute('style', 'width: 500px; filter: drop-shadow(0 0 10px rgba(0, 0, 0, .3))');
+              text.setAttribute("key", id);
+              text.setAttribute("source", "wikidata");
+              return text;
+            },
+
+            onRemove: function (map) {
+              // Nothing to do here
+            },
+          });
+          L.control.infobox = function (opts) {
+            return new L.Control.infobox(opts);
+          };
+          L.control.infobox({ position: "topleft" }).addTo(map);
+        });
+      })
+    )
+    .then((points) => {
+      layers.forEach((item) => {
+        map.removeLayer(item);
+        layers.delete(item);
+      });
+
+      const markers = L.markerClusterGroup();
+      points.forEach((marker) => {
+        layers.add(markers.addLayer(marker));
+      });
+      layers.add(markers);
+      map.addLayer(markers);
+    });
+};
+
+map = L.map("map", { zoomControl: false});
+map.on("moveend", lo);
+map.on("load", lo);
+map.setView(coordinates, zoom);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
-
-var wikidataIcon = L.icon({
-  iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/6/66/Wikidata-logo-en.svg',
-  iconSize:     [52, 37],
-});
-
-
-/** @param {{ north: number, east: number, south: number, west: number }} coordinates */
-const wikidata = async (coordinates) => {
-  const NorthEast = `"Point(${coordinates.north} ${coordinates.east})"^^geo:wktLiteral`;
-  const SouthWest = `"Point(${coordinates.south} ${coordinates.west})"^^geo:wktLiteral`;
-  const response = await fetch(
-    "https://query.wikidata.org/sparql?query=" +
-      encodeURIComponent(/*sql*/ `SELECT ?item ?itemLabel ?location WHERE {
-            SERVICE wikibase:box {
-                ?item wdt:P625 ?location .
-                bd:serviceParam wikibase:cornerNorthEast ${NorthEast} .
-                bd:serviceParam wikibase:cornerSouthWest ${SouthWest} .
-              }
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-          }`),
-    {
-      headers: { Accept: "application/sparql-results+json" },
-    }
-  );
-  /** @type {{ results: { bindings: Record<string, {value: string}>[]}}} */
-  const json = await response.json();
-  return json.results.bindings.map(({ location, item, itemLabel }) => {
-    /** @type {any} */
-    const coordinates = location.value
-      .replace("Point(", "")
-      .replace(")", "")
-      .split(" ")
-      .map((direction) => parseFloat(direction))
-      .reverse();
-
-    return L.marker(coordinates, { icon: wikidataIcon }).bindPopup(
-      () =>
-        `<a href="${item.value}" target="_blank">${itemLabel.value} (${
-          item.value.split("/")[item.value.split("/").length - 1]
-        })</a>`
-    ).on('click', () => {
-      document.querySelector('knowledge-graph')?.setAttribute('key', item.value.slice(item.value.lastIndexOf('/') + 1));
-    });
-  });
-};
-
-const layers = new Set();
-
-map.on("moveend", (e) => {
-  sessionStorage.setItem('coordinates', JSON.stringify(map.getCenter()))
-  sessionStorage.setItem('zoom', JSON.stringify(map.getZoom()))
-
-  const bounds = map.getBounds();
-  const { lat: east, lng: north } = bounds.getNorthEast();
-  const { lat: west, lng: south } = bounds.getSouthWest();
-  
-  const bbox = { east, north, west, south };
-  wikidata(bbox).then((points) => {
-    layers.forEach((item) => {
-      map.removeLayer(item);
-      layers.delete(item);
-    });
-
-    const markers = L.markerClusterGroup();
-    points.forEach((marker) => {
-      layers.add(markers.addLayer(marker));
-    });
-    layers.add(markers);
-    map.addLayer(markers);
-  });
-});
+L.control.zoom({
+  position: 'bottomright'
+}).addTo(map);
