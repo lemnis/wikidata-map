@@ -26,14 +26,19 @@ export const wikidata = async (coordinates) => {
   // Get all wikidata items with a coordinate location within the bounding box
   const response = await fetch(
     "https://query.wikidata.org/sparql?query=" +
-      encodeURIComponent(/*sql*/ `SELECT ?item ?itemLabel ?location WHERE {
+      encodeURIComponent(/*sql*/ `SELECT ?item ?itemLabel ?location (COUNT(?wikipedia) as ?articleCount) WHERE {
             SERVICE wikibase:box {
                 ?item wdt:P625 ?location .
                 bd:serviceParam wikibase:cornerNorthEast ${northEast} .
                 bd:serviceParam wikibase:cornerSouthWest ${southWest} .
               }
               SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-          }`),
+              OPTIONAL {
+                ?wikipedia schema:about ?item.
+              }
+            }
+            GROUP BY ?item ?itemLabel ?location
+          `),
     {
       headers: { Accept: "application/sparql-results+json" },
     }
@@ -41,9 +46,12 @@ export const wikidata = async (coordinates) => {
 
   /** @type {{ results: { bindings: Record<string, {value: string}>[]}}} */
   const json = await response.json();
-  return json.results.bindings.map(({ location, item, itemLabel }) => ({
-    coordinates: sparqlPointToCoordinates(location.value),
-    url: item.value,
-    title: itemLabel.value,
-  }));
+  return json.results.bindings.map(
+    ({ location, item, itemLabel, articleCount }) => ({
+      coordinates: sparqlPointToCoordinates(location.value),
+      url: item.value,
+      title: itemLabel.value,
+      articleCount: parseInt(articleCount.value || "0"),
+    })
+  );
 };
