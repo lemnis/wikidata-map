@@ -33,9 +33,7 @@ export const wikidata = async (coordinates) => {
                 bd:serviceParam wikibase:cornerSouthWest ${southWest} .
               }
               SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-              OPTIONAL {
-                ?wikipedia schema:about ?item.
-              }
+              OPTIONAL { ?wikipedia schema:about ?item. }
             }
             GROUP BY ?item ?itemLabel ?location
           `),

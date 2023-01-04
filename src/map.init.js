@@ -62,7 +62,6 @@ const svgIcon = L.divIcon({
 });
 
 const lo = (e) => {
-  console.log(e);
   setCachedLocation(map.getCenter(), map.getZoom());
 
   const bounds = map.getBounds();
@@ -139,36 +138,100 @@ map.on("click", (e) => {
 });
 map.setView(coordinates, zoom);
 
-const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-}).addTo(map);
-L.control
-  .zoom({
-    position: "bottomright",
-  })
-  .addTo(map);
+const OpenStreetMap = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }
+);
+
+L.control.zoom({ position: "bottomright" }).addTo(map);
 
 var cycleosm = L.tileLayer(
   "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
   {}
 );
 
-var Satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-	attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-});
+var Satellite = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  {
+    attribution:
+      "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+  }
+);
 
-var openrailwaymap = new L.TileLayer('http://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
-{
-	attribution: '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>, Style: <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA 2.0</a> <a href="http://www.openrailwaymap.org/">OpenRailwayMap</a> and OpenStreetMap',
-	minZoom: 2,
-	maxZoom: 19,
-	tileSize: 256
-})
+var openrailwaymap = new L.TileLayer(
+  "http://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+  {
+    attribution:
+      '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>, Style: <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA 2.0</a> <a href="http://www.openrailwaymap.org/">OpenRailwayMap</a> and OpenStreetMap',
+    minZoom: 2,
+    maxZoom: 19,
+    tileSize: 256,
+  }
+);
 
-var baseMaps = {
-  OpenStreetMap: osm,
-  Cycle: cycleosm,
-  Satellite,
+const German = L.tileLayer(
+  "https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png",
+  {
+    maxZoom: 18,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }
+).addTo(map);
+
+L.control
+  .layers(
+    {
+      German,
+      OpenStreetMap,
+      Cycle: cycleosm,
+      Satellite,
+    },
+    { openrailwaymap }
+  )
+  .addTo(map);
+
+const search = (value) => {
+  console.log(value);
+  if (value.includes(",")) {
+    const coors = value.split(",");
+    const lon = parseFloat(coors?.[0]);
+    const lat = parseFloat(coors?.[1]);
+    if (coors.length === 2 && isFinite(lon) && isFinite(lat)) {
+      map.setView(new L.LatLng(lat, lon), 16);
+    }
+  }
 };
-var layerControl = L.control.layers(baseMaps, { openrailwaymap }).addTo(map);
+
+L.Control.searchie = L.Control.extend({
+  onAdd: function (map) {
+    const input = L.DomUtil.create("input");
+    input.type = "search";
+    input.style;
+    input.style.fontSize = "2em";
+    input.style.appearance = "none";
+    input.style.border = "3px solid lightgray";
+    input.style.borderRadius = "1em";
+    input.style.padding = "0.2em 0.5em";
+    input.style.minWidth = "100px";
+    input.addEventListener("change", (ev) => search(ev.target.value));
+    return input;
+  },
+
+  onRemove: function (map) {
+    // Nothing to do here
+  },
+});
+L.control.searchie = function (opts) {
+  return new L.Control.searchie(opts);
+};
+L.control.searchie({ position: "topleft" }).addTo(map);
+
+if (location.search.includes("s=")) {
+  const value = new URLSearchParams(location.search).get("s");
+  search(value);
+}
+
+map.addControl(L.control.search({ position: "topleft" }));
